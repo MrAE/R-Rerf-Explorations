@@ -1,0 +1,18 @@
+#!/bin/bash -l
+
+#SBATCH
+#SBATCH --job-name=Rectangles
+#SBATCH --time=1-0:0:0
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=24
+#SBATCH --partition=shared, gpu, parallel
+#SBATCH --mail-type=end
+#SBATCH --mail-user=jpatsol1@jhu.edu
+
+
+module load R
+
+Rscript sweeping_tests.R
+
+
+

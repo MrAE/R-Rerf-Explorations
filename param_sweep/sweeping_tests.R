@@ -7,17 +7,19 @@
 #
 
 require(devtools)
-devtools::install_github("mrae/R-Rerf", ref = "jtest20180426")
 require(rerf)
 
-if ("jpatsol1" %in% Sys.info()) {
-  require(doMPI)
-  cl <- startMPIcluster()
-  registerDoMPI(cl)
-  registerDoMC(nCores)
-} else {
+if ("jpatsol1@jhu.edu" %in% Sys.info()) {
+  devtools::install_github("mrae/R-Rerf", ref = "jtest20180426")
+  #require(doMPI)
+  #cl <- startMPIcluster()
+  #registerDoMPI(cl)
+  #registerDoMC(nCores)
   require(doMC)
   registerDoMC(24)
+} else {
+  require(doMC)
+  registerDoMC(4)
 }
 
 data(mnist)
@@ -31,22 +33,16 @@ p <- ncol(mnist$Xtrain)
 d <- ceiling(sqrt(p))
 iw <- sqrt(p)
 ih <- iw
-sq <- 2L:9L
-rectMM <- expand.grid(1L:8L, 1L:8L)[, c(2,1)]
-
-opt.image.squares <- lapply(1:length(sq), 
-			  function(i) { 
-				       list(p, d, "image-patch", 
-					    iw, ih, 
-					    patch.min = sq[i], 
-					    patch.max = sq[i]) })
+rectMM <- expand.grid(width = 1L:8L, height = 1L:8L)[, c(2,1)]
 
 opt.image.rect <- lapply(1:nrow(rectMM), 
 			  function(i) { 
-				       list(p, d, "image-patch-rectangles", 
-					    iw, ih, 
-					    patch.min = rectMM[i,1], 
-					    patch.max = rectMM[i,2]) })
+				  list(p, d, "image-patch-rectangles", 
+					     iw, ih, 
+					     patch.min = rectMM[i,1], 
+					     patch.max = rectMM[i,2]) 
+        }
+        )
 
 #opt.list <- c(opt.rf, opt.poisson, opt.image.squares, opt.image.rect)
 opt.list <- opt.image.rect
@@ -59,20 +55,26 @@ run1 <- foreach(oi = opt.list) %dopar% {
   list(forest = forest, pred = predictions, error = error.rate)
 }
 
-tmp <- sapply(run1, '[[', 3)
-df1 <- data.frame(x = c(1:length(opt.list)),y = tmp)
+Lhat <- sapply(run1, '[[', 3)
+rectMM$Lhat <- Lhat
+df1 <- data.frame(x = c(1:length(opt.list)),y = Lhat)
+
 
 require(ggplot2)
-pdf("errors_with_types2.pdf")
-show(ggplot(data = df1, aes(x = x, y = y, color = typ)) + geom_point())
+png("height_width_Lhat.png", height = 1080, width = 1080, res = 150)
+#plot(ggplot(data = df1, aes(x = x, y = y)) + geom_point())
+p1 <- ggplot(data = rectMM, aes(x = width, y = height)) + 
+        geom_raster(aes(fill = Lhat))
+p2 <- p1 + scale_fill_distiller(palette = "Greens", direction = 1) + 
+        scale_x_continuous(breaks = seq(1, 8), minor_breaks = 0) +
+        scale_y_continuous(breaks = seq(1, 8), minor_breaks = 0) +
+        annotate("rect", xmin = 5.5, xmax = 6.5, 
+                 ymin = 0.5, ymax = 1.5, alpha = 0,
+                 colour = 'red')
+plot(p2 + ggtitle("L hat for Structured R-Rerf on MNIST"))
 dev.off()
 
-pdf("tmp.pdf")
-plot(tmp, type = 'l')
-dev.off()
-
-
-
+save.image(file = "session_sweeping_tests.RData")
 
 
 #   Time:
